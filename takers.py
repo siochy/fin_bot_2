@@ -5,6 +5,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.utils.keyboard import ReplyKeyboardBuilder
 
 import sql_for_bot as sql
+import graphics
 from states import Insert
 
 
@@ -23,7 +24,7 @@ async def purchase_handler(message: types.Message, state: FSMContext):
     user = str(message.from_user.id)
     user_db_id = await sql.user_check(user)
 
-    await state.update_data(user_id=user_db_id)
+    await state.update_data(user_db_id=user_db_id, user=user)
     await message.answer('Insert name of purchased', reply_markup=types.ReplyKeyboardRemove())
     await state.set_state(Insert.insert_purch)
 
@@ -44,7 +45,8 @@ async def purchase_handle_summ(message: types.Message, state: FSMContext):
 
     summ = abs(float(message.text))
     data = await state.get_data()
-    user_db_id = data['user_id']
+    user_db_id = int(data['user_db_id'])
+    user = data['user']
     product = data['prod']
     balance = await sql.get_balance_savings(user_db_id, 'balance')
     new_bal_sav = await sql.calc_new_bs(product, balance, 0, summ)
@@ -59,6 +61,10 @@ async def purchase_handle_summ(message: types.Message, state: FSMContext):
     await sql.insert_into_pcs(user_db_id, product, summ)
     await sql.insert_into_bs(user_db_id, 'balance', balance)
     await state.clear()
+
+    await graphics.monthly_inc_sav_graph(user_db_id, user)
+    await graphics.top_purchases_graph(user_db_id, user, '1970-01-01', '2030-12-31')
+    await graphics.daily_graph(user_db_id, user)
 
 
 @rt.message(Insert.insert_cost)
@@ -109,6 +115,10 @@ async def sti_handle_summ(message: types.Message, state: FSMContext):
     await sql.insert_into_bs(user_db_id, 'balance', balance)
     await sql.insert_into_bs(user_db_id, 'savings', savings)
     await state.clear()
+
+    await graphics.monthly_inc_sav_graph(user_db_id, user)
+    await graphics.top_purchases_graph(user_db_id, user, '1970-01-01', '2030-12-31')
+    await graphics.daily_graph(user_db_id, user)
 
 
 @rt.message(Insert.insert_sti)
