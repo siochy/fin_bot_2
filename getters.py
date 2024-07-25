@@ -7,6 +7,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.utils.keyboard import ReplyKeyboardBuilder
 
 import sql_for_bot as sql
+import graphics
 from states import Insert
 
 
@@ -36,6 +37,10 @@ async def bal_sav_handler(message: types.Message):
     builder.adjust(3)
 
     await message.answer(mess, reply_markup=builder.as_markup(resize_keyboard=True))
+
+    await graphics.monthly_inc_sav_graph(user_db_id, user)
+    await graphics.top_purchases_graph(user_db_id, user, '1970-01-01', '2030-12-31')
+    await graphics.daily_graph(user_db_id, user)
 
 
 # group of handlers for statistics
