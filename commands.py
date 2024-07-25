@@ -4,6 +4,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.utils.keyboard import ReplyKeyboardBuilder
 
 import sql_for_bot as sql
+import graphics
 
 rt = Router()
 buttons_start = ('purchase', 'balance', 'savings', 'save', 'income', 'take', 'statistics')
@@ -17,6 +18,7 @@ async def command_start_handler(message: types.Message) -> None:
     check = await sql.user_check(user)
     if not check:
         await sql.create_user(user)
+        check = await sql.user_check(user)
 
     builder = ReplyKeyboardBuilder()
     for button in buttons_start:
@@ -24,6 +26,10 @@ async def command_start_handler(message: types.Message) -> None:
     builder.adjust(3)
 
     await message.answer(text='Choose', reply_markup=builder.as_markup(resize_keyboard=True))
+
+    await graphics.monthly_inc_sav_graph(check, user)
+    await graphics.top_purchases_graph(check, user, '1970-01-01', '2030-12-31')
+    await graphics.daily_graph(check, user)
 
 
 @rt.message(Command(commands='help'))
