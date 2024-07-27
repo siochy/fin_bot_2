@@ -3,7 +3,7 @@ That's the part to interact bot and func of graphics
 with postgresql database using psycopg3 with async.
 
 tables:
-    user - id(auto, pk), tg_id(uq)\n
+    users - id(auto, pk), tg_id(uq)\n
     purchases - id(auto, pk), user_id(fk), date, product, summ\n
     income - id(auto, pk), user_id(fk), date, summ\n
     save - id(auto, pk), user_id(fk), date, summ\n
@@ -17,7 +17,6 @@ import dotenv
 
 from psycopg import AsyncConnection as AsCon
 from psycopg import sql
-
 
 dotenv.load_dotenv()
 database = os.getenv('DB')
@@ -94,7 +93,7 @@ async def insert_into_bs(user: int, table: str, summ: float) -> None:
 async def insert_into_pcs(user: int, prod: str, summ: float) -> None:
     """just insert into table 'purchases', oh no, some purchase\n"""
 
-    prod = prod.lower().strip().replace(' ', '_')
+    prod = prod.lower().capitalize().strip().replace(' ', '_')
 
     async with await AsCon.connect(database) as conn:
         async with conn.cursor() as curs:
@@ -143,15 +142,19 @@ async def purchases_period(user: int, date1: str, date2: str) -> tuple:
 
     async with await AsCon.connect(database) as conn:
         async with conn.cursor() as curs:
-            query = '''SELECT date::text, product, summ FROM purchases
+            query1 = '''SELECT date::text, product, summ FROM purchases
             WHERE user_id = (%s) AND date::text BETWEEN (%s) AND (%s)
-            UNION
-            SELECT 'PERIOD', 'SUMMARY', SUM(summ)
+            ORDER BY date, id;'''
+            await curs.execute(query1, (user, date1, date2))
+            result1 = await curs.fetchall()
+
+            query2 = '''SELECT 'Period', 'Summary', SUM(summ)
             FROM purchases
-            WHERE user_id = (%s) AND date::text BETWEEN (%s) AND (%s)
-            ORDER BY date, summ;'''
-            await curs.execute(query, (user, date1, date2, user, date1, date2))
-            result = await curs.fetchall()
+            WHERE user_id = (%s) AND date::text BETWEEN (%s) AND (%s);'''
+            await curs.execute(query2, (user, date1, date2))
+            result2 = await curs.fetchall()
+
+            result = result1 + result2
 
     return tuple(result)
 
@@ -202,7 +205,7 @@ async def daily_sum(user: int, table: str) -> tuple:
     async with await AsCon.connect(database) as conn:
         async with conn.cursor() as curs:
             query = sql.SQL(
-                '''SELECT date::text, SUM(summ)
+                '''SELECT date, SUM(summ)
                 FROM {table}
                 WHERE user_id = (%s)
                 GROUP BY date ORDER BY date;''').format(table=sql.Identifier(table.lower()))
