@@ -29,11 +29,11 @@ async def bal_sav_handler(message: types.Message):
     user_db_id = await sql.user_check(user)
     table = message.text
     summ = await sql.get_balance_savings(user_db_id, table)
-    mess = f'{table.capitalize()}: {round(summ, 2)}'
+    mess = f'{table.title()}: {round(summ, 2)}'
 
     builder = ReplyKeyboardBuilder()
     for button in buttons_start:
-        builder.add(types.KeyboardButton(text=button.capitalize()))
+        builder.add(types.KeyboardButton(text=button.title()))
     builder.adjust(3)
 
     await message.answer(mess, reply_markup=builder.as_markup(resize_keyboard=True))
@@ -51,9 +51,12 @@ async def stats_handler(message: types.Message, state: FSMContext):
     user = str(message.from_user.id)
     user_db_id = await sql.user_check(user)
 
+    # buttons: 'top of purchases', 'list of purchases',
+    # 'balance per day', 'sum of purchases per month'
     builder = ReplyKeyboardBuilder()
     for button in buttons_stat:
-        builder.add(types.KeyboardButton(text=button.capitalize()))
+        builder.add(types.KeyboardButton(text=button.title()))
+    builder.add(types.KeyboardButton(text='Sum Of Purchases Per Month'))
     builder.adjust(2)
 
     await state.update_data(user_id=user_db_id)
@@ -61,10 +64,33 @@ async def stats_handler(message: types.Message, state: FSMContext):
     await state.set_state(Insert.insert_stat)
 
 
+@rt.message(Insert.insert_stat, F.text.lower() == 'sum of purchases per month')
+async def stats_sum_month(message: types.Message, state: FSMContext):
+    """sum for every month that exists in database for user"""
+
+    data = await state.get_data()
+    user = int(data['user_id'])
+    records = await sql.monthly_sum(user, 'purchases')
+    result = str()
+
+    for record in records:
+        result += f'{record[0]} {round(record[1], 2)}\n'
+
+    builder = ReplyKeyboardBuilder()
+    for button in buttons_start:
+        builder.add(types.KeyboardButton(text=button.title()))
+    builder.adjust(3)
+
+    await message.answer(result, reply_markup=builder.as_markup(resize_keyboard=True))
+    await state.clear()
+    
+
 @rt.message(Insert.insert_stat, F.text.lower().in_(buttons_stat))
 async def stats_handler_next(message: types.Message, state: FSMContext):
     """deciding what type of stats user needs"""
 
+    # buttons: 'this month', 'previous month',
+    # 'all period'(if message was 'top of purchases')
     builder = ReplyKeyboardBuilder()
     builder.add(types.KeyboardButton(text='This month'))
     builder.add(types.KeyboardButton(text='Previous month'))
@@ -81,9 +107,12 @@ async def stats_handler_next(message: types.Message, state: FSMContext):
 async def stats_error_type(message: types.Message):
     """show answer if user wrong with buttons"""
 
+    # buttons: 'top of purchases', 'list of purchases',
+    # 'balance per day', 'sum of purchases per month'
     builder = ReplyKeyboardBuilder()
     for button in buttons_stat:
-        builder.add(types.KeyboardButton(text=button.capitalize()))
+        builder.add(types.KeyboardButton(text=button.title()))
+    builder.add(types.KeyboardButton(text='Sum Of Purchases Per Month'))
     builder.adjust(2)
 
     await message.answer('Use buttons, please\nOr click /cancel',
@@ -122,26 +151,26 @@ async def stats_period(message: types.Message, state: FSMContext):
         records = await sql.top_purchases(user, date1, date2, 10)
         for record in records:
             # 0 - product, 1 - sum of it
-            result += f'{record[0]} {record[1]}\n'
+            result += f'{record[0]} {round(record[1], 2)}\n'
 
     elif data['stat'].lower() == 'list of purchases':
         records = await sql.purchases_period(user, date1, date2)
         for record in records:
             # 0 - date, 1 - product, 2 - cost of it
-            result += f'{record[0]} {record[1]} {record[2]}\n'
+            result += f'{record[0]} {record[1]} {round(record[2], 2)}\n'
 
     elif data['stat'].lower() == 'balance per day':
         records = await sql.balance_savings_period(user, 'balance', date1, date2)
         for record in records:
             # 0 - date, 1 - balance at this date
-            result += f'{record[0]} {record[1]}\n'
+            result += f'{record[0]} {round(record[1], 2)}\n'
 
     if not result:
         result = 'No records at this period'
 
     builder = ReplyKeyboardBuilder()
     for button in buttons_start:
-        builder.add(types.KeyboardButton(text=button.capitalize()))
+        builder.add(types.KeyboardButton(text=button.title()))
     builder.adjust(3)
 
     # message could be too long for telegram so there is calculating parts of so long message
@@ -165,6 +194,9 @@ async def stats_error_period(message: types.Message, state: FSMContext):
 
     data = await state.get_data()
     stat = data['stat']
+
+    # buttons: 'this month', 'previous month',
+    # 'all period'(if message was 'top of purchases')
     builder = ReplyKeyboardBuilder()
     builder.add(types.KeyboardButton(text='This month'))
     builder.add(types.KeyboardButton(text='Previous month'))
