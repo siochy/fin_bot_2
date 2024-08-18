@@ -1,5 +1,5 @@
 <h2>Financial Bot</h2>
-___
+
 New version of bot
 https://github.com/siochy/siochy.github.io
 <p>I hope it is more clear and useful now.</p>
